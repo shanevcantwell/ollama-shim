@@ -166,3 +166,6 @@ async def handle_tags():
     except Exception as e:
         print(f"An error occurred in /api/tags: {e}")
         return JSONResponse(content={"models": []})
+
+
+

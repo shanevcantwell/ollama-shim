@@ -39,12 +39,6 @@ This directory contains individual FastAPI routers, each responsible for a speci
         - Includes detailed streaming response mocks that match real service output
         - Tests both streaming and non-streaming endpoints
 
-*   `testenv/`:
-    *   **Purpose**: Virtual environment for testing, created by the test script
-    *   **Structure**:
-        - Contains isolated Python installation with pytest and pytest-httpx
-        - Created on-demand when running tests to avoid system conflicts
-
 ## `scripts/` Directory
 
 *   `scripts/run-tests.sh`:

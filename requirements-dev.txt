@@ -1,0 +1,3 @@
+pytest-httpx  # Added for HTTP mocking in tests
+pytest
+pytest-asyncio

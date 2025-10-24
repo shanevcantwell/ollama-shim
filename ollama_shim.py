@@ -158,24 +158,73 @@ async def handle_ollama_chat(request: Request):
             )
 
         primary_payload = {
-            "model": ollama_data.get("model"), "messages": ollama_data.get("messages")
-        }
-        
-        print(f"--- 2a. Forwarding to Primary Model ---")
-        primary_response_json = await call_llm(PRIMARY_MODEL_URL, primary_payload)
-        final_content = primary_response_json["choices"][0]["message"]["content"]
-
-        ollama_response = {
             "model": ollama_data.get("model"),
-            "message": {
-                "role": "assistant",
-                "content": final_content
-            },
-            "done": True
+            "messages": ollama_data.get("messages"),
+            "stream": ollama_data.get("stream", False)
         }
-        
-        print(f"--- 4. Responding to Client ---\n{ollama_response}\n")
-        return JSONResponse(content=ollama_response)
+
+        if ollama_data.get("stream", False):
+            async def stream_generator():
+                try:
+                    async with httpx.AsyncClient(timeout=RESPONSE_TIMEOUT) as client:
+                        async with client.stream("POST", PRIMARY_MODEL_URL, json=primary_payload, timeout=API_TIMEOUT) as response:
+                            response.raise_for_status()
+                            async for line in response.aiter_lines():
+                                if line.startswith('data: '):
+                                    line = line[6:]
+                                    if line.strip() == '[DONE]':
+                                        break
+                                    try:
+                                        chunk = json.loads(line)
+                                        if 'choices' in chunk and len(chunk['choices']) > 0:
+                                            delta = chunk['choices'][0]['delta']
+                                            if 'content' in delta:
+                                                ollama_chunk = {
+                                                    "model": ollama_data.get("model"),
+                                                    "created_at": datetime.now().isoformat(),
+                                                    "message": {
+                                                        "role": "assistant",
+                                                        "content": delta['content']
+                                                    },
+                                                    "done": False
+                                                }
+                                                yield json.dumps(ollama_chunk) + '\n'
+                                    except json.JSONDecodeError:
+                                        continue
+                except (httpx.RequestError, httpx.HTTPStatusError, asyncio.TimeoutError) as e:
+                    error_msg = f"Failed to connect to {PRIMARY_MODEL_URL}: {str(e)}"
+                    print(f"--- Error during streaming ---\n{error_msg}")
+                
+                # Send final done message
+                final_chunk = {
+                    "model": ollama_data.get("model"),
+                    "created_at": datetime.now().isoformat(),
+                    "message": {
+                        "role": "assistant",
+                        "content": ""
+                    },
+                    "done": True
+                }
+                yield json.dumps(final_chunk) + '\n'
+
+            return StreamingResponse(stream_generator(), media_type="application/x-ndjson")
+
+        else:
+            print(f"--- 2a. Forwarding to Primary Model ---")
+            primary_response_json = await call_llm(PRIMARY_MODEL_URL, primary_payload)
+            final_content = primary_response_json["choices"][0]["message"]["content"]
+
+            ollama_response = {
+                "model": ollama_data.get("model"),
+                "message": {
+                    "role": "assistant",
+                    "content": final_content
+                },
+                "done": True
+            }
+            
+            print(f"--- 4. Responding to Client ---\n{ollama_response}\n")
+            return JSONResponse(content=ollama_response)
 
     except HTTPException:
         raise

@@ -30,40 +30,31 @@ cd ollama_shim
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install "fastapi[all]" httpx uvicorn
+pip install -r requirements.txt
 deactivate
 ```
 
 ## Running the Service
 
-### Development mode (foreground):
-
 ```bash
 ./run.sh
 ```
 
-### Production mode with systemd:
-
-1. Copy the service file to systemd:
-
-```bash
-sudo cp ollama-shim.service /etc/systemd/system/
-sudo systemctl daemon-reload
-```
-
-2. Start and enable the service:
-
-```bash
-sudo systemctl start ollama-shim.service
-sudo systemctl enable ollama-shim.service
-```
-
 ## Configuration
 
-Edit `ollama_shim.py` to set:
-- `PRIMARY_MODEL_URL`
-- `REFINER_MODEL_URL`
-- `REFINER_SYSTEM_PROMPT`
+Create a `.env` file in the project root directory to override the default settings.
+You can copy the `.env.example` file to get started:
+
+```bash
+cp .env.example .env
+```
+
+Then, edit the `.env` file to set your desired configuration. The following variables are available:
+
+- `PRIMARY_MODEL_URL`: The full URL to your LM Studio (or other OpenAI-compatible) completions endpoint.
+- `API_TIMEOUT`: Timeout (in seconds) for the OpenAI API request.
+- `RESPONSE_TIMEOUT`: Max wait time for a response from the model.
+- `SHIM_PORT`: Port for the Ollama Shim service to listen on.
 
 ## Usage
 

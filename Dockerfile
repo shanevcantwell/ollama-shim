@@ -3,14 +3,13 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY pyproject.toml requirements.txt ./
-RUN pip install --upgrade pip && \
-    pip install -e ".[all]"
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
 ENV PRIMARY_MODEL_URL=http://localhost:1234/v1/chat/completions
-ENV REFINER_MODEL_URL=http://localhost:1235/v1/chat/completions
 
 EXPOSE 11434
 

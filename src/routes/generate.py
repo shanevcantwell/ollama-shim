@@ -1,81 +1,98 @@
+# src/routes/generate.py
+
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+import httpx
 import json
-from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse
-from utils import map_ollama_options_to_openai, stream_and_transform_llm_response, check_backend_health
-from config import LM_STUDIO_BASE_URL
+
+# --- THIS IS THE FIX ---
+# Use relative imports to go up to the 'src' directory
+from ..utils import (
+    logger, client, translate_ollama_options_to_openai, 
+    stream_translator, get_iso_timestamp, get_chat_completions_url
+)
 
 router = APIRouter()
 
 @router.post("/api/generate")
 async def handle_ollama_generate(request: Request):
-    """
-    Receives an Ollama-specific request, translates it to the OpenAI format,
-    and forwards it to the LM Studio backend.
-    """
-    print(f"--- Received request on: {request.url.path} ---")
     try:
         ollama_data = await request.json()
-        print(f"--- 1. Received Ollama Request ---\n{ollama_data}")
 
-        # Check backend availability before calling
-        if not (await check_backend_health()):
-            raise HTTPException(
-                status_code=503,
-                detail={
-                    "error": {
-                        "message": "Primary model service unavailable",
-                        "code": 503,
-                        "suggested_action": "Check LM Studio server at " + LM_STUDIO_BASE_URL
-                    }
-                }
-            )
+        logger.info(f"Received /api/generate request for model: {ollama_data.get('model')}")
+        logger.debug(f"Full /api/generate payload: {json.dumps(ollama_data)}")
 
+        openai_payload = translate_ollama_options_to_openai(ollama_data)
+        
         user_content = []
         if ollama_data.get("prompt"):
             user_content.append({"type": "text", "text": ollama_data["prompt"]})
-
         if ollama_data.get("images"):
             for img_b64 in ollama_data["images"]:
-                user_content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{img_b64}"}
-                })
+                user_content.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
         
         messages = [{"role": "user", "content": user_content}]
         if ollama_data.get("system"):
             messages.insert(0, {"role": "system", "content": ollama_data["system"]})
+        openai_payload["messages"] = messages
         
-        primary_payload = {
-            "model": ollama_data.get("model"), 
-            "messages": messages,
-            "stream": True # We always stream from the backend
-        }
-        if "options" in ollama_data:
-            openai_options = map_ollama_options_to_openai(ollama_data["options"])
-            primary_payload.update(openai_options)
-        
-        final_content = ""
-        async for chunk in stream_and_transform_llm_response(primary_payload):
-            data = json.loads(chunk)
-            if not data.get("done", False):
-                final_content += data.get("message", {}).get("content", "")
+        is_streaming_request = ollama_data.get("stream", False)
+        openai_payload["stream"] = is_streaming_request
 
-        ollama_response = {
-            "model": ollama_data.get("model"),
-            "response": final_content,
-            "done": True
-        }
-        
-        return JSONResponse(content=ollama_response)
+        chat_url = get_chat_completions_url()
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"An error occurred in /api/generate: {e}")
-        return JSONResponse(status_code=500, content={
-            "error": {
-                "message": str(e),
-                "code": 500,
-                "details": f"Ollama Shim service encountered an unexpected error"
+        # --- BRANCH 1: Streaming ---
+        if is_streaming_request:
+            logger.info(f"Forwarding as STREAMING request to {chat_url}...")
+            
+            # --- Stream Lifecycle Fix ---
+            lm_studio_stream_context = client.stream("POST", chat_url, json=openai_payload)
+            lm_studio_stream_response = await lm_studio_stream_context.__aenter__()
+            
+            lm_studio_stream_response.raise_for_status()
+            
+            return StreamingResponse(
+                stream_translator(
+                    lm_studio_stream_response, 
+                    response_format="generate",
+                    model_name=openai_payload["model"],
+                    context_to_close=lm_studio_stream_context
+                ),
+                media_type="application/x-ndjson"
+            )
+
+        # --- BRANCH 2: Non-Streaming ---
+        else:
+            logger.info(f"Forwarding as NON-STREAMING request to {chat_url}...")
+            response = await client.post(chat_url, json=openai_payload)
+            response.raise_for_status()
+            openai_json = response.json()
+            
+            logger.debug(f"Received non-streaming response from LM Studio: {openai_json}")
+
+            final_content = openai_json["choices"][0]["message"]["content"]
+            
+            ollama_response = {
+                "model": openai_json["model"],
+                "created_at": get_iso_timestamp(),
+                "response": final_content,
+                "done": True,
+                "context": [],
             }
-        })
+            if "usage" in openai_json and openai_json["usage"]:
+                 ollama_response.update({
+                    "total_duration": openai_json["usage"].get("total_duration_sec", 0) * 1_000_000_000,
+                    "prompt_eval_count": openai_json["usage"]["prompt_tokens"],
+                    "eval_count": openai_json["usage"]["completion_tokens"],
+                 })
+
+            logger.info("Returning non-streaming response to client.")
+            logger.debug(f"Full non-streaming response: {ollama_response}")
+            return JSONResponse(content=ollama_response)
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error occurred in /api/generate: {e.response.text}", exc_info=True)
+        return JSONResponse(status_code=e.response.status_code, content={"error": str(e.response.text)})
+    except Exception as e:
+        logger.error(f"An error occurred in /api/generate: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})

@@ -20,6 +20,7 @@ dependencies = [
     "fastapi[all]>=0.95.0",
     "httpx>=0.25.0",
     "python-dotenv",
+    "pydantic_settings",
 ]
 
 [project.urls]

@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     """
     Loads configuration from environment variables and .env file.
     Pydantic will automatically find the .env file in the
-    current working directory, which run.sh sets to the project root.
+    current working directory, which run.bat sets to the project root.
     """
     model_config = SettingsConfigDict(
         env_file='.env', # Look for .env in the CWD
@@ -14,7 +14,7 @@ class Settings(BaseSettings):
         extra='ignore'
     )
 
-    # This will now correctly read 'LM_STUDIO_BASE_URL' from your root .env
+    # This will read LM_STUDIO_BASE_URL from your root .env
     LM_STUDIO_BASE_URL: str = "http://127.0.0.1:1234"
     
     LOG_LEVEL: str = "INFO"

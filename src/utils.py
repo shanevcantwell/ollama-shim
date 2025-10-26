@@ -1,14 +1,11 @@
 # src/utils.py
 
-import logging
 import httpx
 import json
 from datetime import datetime, timezone
 
-# Use relative import for config
-from .config import settings
-
-logger = logging.getLogger("uvicorn.error")
+# Use relative import for config and logger
+from .config import settings, logger
 
 # --- URL Helper Functions ---
 # (These now correctly use the settings object)

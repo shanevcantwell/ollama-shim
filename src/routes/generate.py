@@ -1,5 +1,10 @@
 # src/routes/generate.py
 
+# --- WARNING ---
+# Enabling DEBUG level logging will cause the full contents of communication
+# with the LLM to be printed to the console. This may include sensitive data.
+# --- WARNING ---
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
@@ -18,7 +23,7 @@ async def handle_ollama_generate(request: Request):
     try:
         ollama_data = await request.json()
 
-        logger.info(f"Received /api/generate request for model: {ollama_data.get('model')}")
+        logger.info("Received /api/generate request.")
         logger.debug(f"Full /api/generate payload: {json.dumps(ollama_data)}")
 
         openai_payload = translate_ollama_options_to_openai(ollama_data)
@@ -27,7 +32,7 @@ async def handle_ollama_generate(request: Request):
         if ollama_data.get("prompt"):
             user_content.append({"type": "text", "text": ollama_data["prompt"]})
         if ollama_data.get("images"):
-            logger.info(f"Translating {len(ollama_data['images'])} image(s) for LM Studio.")
+            logger.debug(f"Translating {len(ollama_data['images'])} image(s) for LM Studio.")
             for img_b64 in ollama_data["images"]:
                 user_content.append({
                     "type": "image_url",
@@ -42,14 +47,10 @@ async def handle_ollama_generate(request: Request):
         is_streaming_request = ollama_data.get("stream", False)
         openai_payload["stream"] = is_streaming_request
 
-        # --- THIS IS THE FIX ---
-        # This function gets the URL from your .env file via config.py
         chat_url = get_chat_completions_url()
-        # ---
 
-        # --- BRANCH 1: Streaming ---
         if is_streaming_request:
-            logger.info(f"Forwarding as STREAMING request to {chat_url}...")
+            logger.debug(f"Forwarding as STREAMING request to {chat_url}...")
             
             lm_studio_stream_context = client.stream("POST", chat_url, json=openai_payload)
             lm_studio_stream_response = await lm_studio_stream_context.__aenter__()
@@ -66,9 +67,8 @@ async def handle_ollama_generate(request: Request):
                 media_type="application/x-ndjson"
             )
 
-        # --- BRANCH 2: Non-Streaming ---
         else:
-            logger.info(f"Forwarding as NON-STREAMING request to {chat_url}...")
+            logger.debug(f"Forwarding as NON-STREAMING request to {chat_url}...")
             response = await client.post(chat_url, json=openai_payload)
             response.raise_for_status()
             openai_json = response.json()
@@ -99,11 +99,9 @@ async def handle_ollama_generate(request: Request):
         logger.error(f"HTTP error occurred in /api/generate: {e.response.text}", exc_info=True)
         return JSONResponse(status_code=e.response.status_code, content={"error": str(e.response.text)})
     
-    # --- THIS IS THE BLOCK THAT CATCHES THE "Failed to connect..." ERROR ---
     except httpx.ConnectError as e:
         error_message = f"Failed to connect to LM Studio at {chat_url}: {e}"
         logger.error(error_message, exc_info=True)
-        # This creates the 502 error payload you're seeing
         return JSONResponse(status_code=502, content={"detail": {"error": {"message": "Backend service unavailable", "code": 502, "details": str(e)}}})
     
     except Exception as e:

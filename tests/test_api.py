@@ -1,63 +1,116 @@
+# tests/test_api.py
+
+import pytest
 import json
-from httpx import Response
-from fastapi.testclient import TestClient
+import respx # Import respx
+from httpx import Response, ConnectError
+# No need to import TestClient here, it comes from the fixture
 
-# Changed from httpx_mock to pytest-httpx fixture
+# --- Sample Payloads (Unchanged) ---
+MOCK_LM_STUDIO_MODELS = { "data": [{"id": "mistralai/magistral-small-2509", "created": 1720000000, "object": "model", "owned_by": "unknown"}]}
+MOCK_LM_STUDIO_CHAT_RESPONSE = {"id": "chatcmpl-123", "object": "chat.completion", "created": 1720000001, "model": "mistralai/magistral-small-2509", "choices": [{"index": 0, "message": {"role": "assistant", "content": "There are two dogs in the image."}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}}
+MOCK_LM_STUDIO_STREAM_CHUNKS = ['data: {"id":"1","choices":[{"delta":{"role":"assistant"}}]}\n\n', 'data: {"id":"2","choices":[{"delta":{"content":"There are"}}]}\n\n', 'data: {"id":"3","choices":[{"delta":{"content":" two dogs."}}]}\n\n', 'data: {"id":"4","choices":[{"delta":{},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n']
 
-def test_generate_non_streaming(test_client: TestClient, httpx_mock):  # This will now be provided by pytest-httpx
-    # Mock the response from the LM Studio backend
-    mock_response_content = r"""
-    data: {\"id\": \"chatcmpl-123\", \"object\": \"chat.completion.chunk\", \"created\": 1694268190, \"model\": \"gpt-3.5-turbo-0613\", \"choices\":[{\"index\": 0, \"delta\": {\"content\": \"Hello\"}, \"finish_reason\": null}]}\\n\\
-data: [DONE]\\
-    """
-    httpx_mock.add_response(url="http://127.0.0.1:1234/v1/chat/completions", content=mock_response_content.encode('utf-8'))
+# --- The Tests (Using manual 'with respx.mock') ---
 
-    # Make a request to the /api/generate endpoint
-    response = test_client.post("/api/generate", json={
-        "model": "test-model",
-        "prompt": "Hello",
-        "stream": False
-    })
-
-    # Assert the response
+def test_health_check(test_client): # No mocking needed
+    """Tests the root GET / health check."""
+    response = test_client.get("/")
     assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["model"] == "test-model"
-    assert response_json["response"] == "Hello"
-    assert response_json["done"] is True
+    assert response.text == '"Ollama is running"'
 
-def test_chat_streaming(test_client: TestClient, httpx_mock):  # This will now be provided by pytest-httpx
-    # Mock the response from the LM Studio backend
-    mock_response_content = r"""
-    data: {\"id\": \"chatcmpl-123\", \"object\": \"chat.completion.chunk\", \"created\": 1694268190, \"model\": \"gpt-3.5-turbo-0613\", \"choices\":[{\"index\": 0, \"delta\": {\"content\": \"Hello\"}, \"finish_reason\": null}]}\\n\\
-data: {\"id\": \"chatcmpl-123\", \"object\": \"chat.completion.chunk\", \"created\": 1694268190, \"model\": \"gpt-3.5-turbo-0613\", \"choices\":[{\"index\": 0, \"delta\": {\"content\": \" World\"}, \"finish_reason\": null}]}\\n\\
-data: [DONE]\\
-    """
-    httpx_mock.add_response(url="http://127.0.0.1:1234/v1/chat/completions", content=mock_response_content.encode('utf-8'))
-
-    # Make a request to the /api/chat endpoint
-    with test_client.stream("POST", "/api/chat", json={
-        "model": "test-model",
-        "messages": [{"role": "user", "content": "Hello"}],
-        "stream": True
-    }) as response:
-        # Assert the response
-        assert response.status_code == 200
+# --- THIS IS THE FIX ---
+# Apply respx context manually
+def test_get_tags_success(test_client, mock_lm_studio_urls):
+    """Tests the ComfyUI /api/tags endpoint."""
+    models_url = mock_lm_studio_urls["models_url"]
+    
+    with respx.mock as mocker: # Activate mocking
+        mocker.get(models_url).return_value(Response(status_code=200, json=MOCK_LM_STUDIO_MODELS))
         
-        # Collect the streaming response
-        chunks = list(response.iter_lines())
-        
-        # Assert the content of the chunks
-        assert len(chunks) == 3 # Two content chunks and one final done chunk
-        
-        chunk1 = json.loads(chunks[0])
-        assert chunk1["message"]["content"] == "Hello"
-        assert chunk1["done"] is False
+        # Make the call *within* the mock context
+        response = test_client.get("/api/tags") 
+    
+    # Assertions outside the context are fine
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+    assert len(data["models"]) == 1
+    assert data["models"][0]["name"] == "mistralai/magistral-small-2509"
 
-        chunk2 = json.loads(chunks[1])
-        assert chunk2["message"]["content"] == " World"
-        assert chunk2["done"] is False
+# --- THIS IS THE FIX ---
+# Apply respx context manually
+def test_get_tags_connection_error(test_client, mock_lm_studio_urls):
+    """Tests /api/tags when LM Studio is unreachable."""
+    models_url = mock_lm_studio_urls["models_url"]
+    
+    with respx.mock as mocker:
+        mocker.get(models_url).side_effect = ConnectError("Connection failed")
+        response = test_client.get("/api/tags")
+        
+    assert response.status_code == 500
+    data = response.json()
+    assert "error" in data
+    assert "Cannot connect to LM Studio" in data["error"]
 
-        chunk3 = json.loads(chunks[2])
-        assert chunk3["message"]["content"] == ""
-        assert chunk3["done"] is True
+# --- THIS IS THE FIX ---
+# Apply respx context manually
+def test_chat_non_streaming_image(test_client, mock_lm_studio_urls):
+    """Tests the AnythingLLM non-streaming image case (/api/chat)."""
+    chat_url = mock_lm_studio_urls["chat_url"]
+    
+    with respx.mock as mocker:
+        mock_route = mocker.post(chat_url).return_value(
+            Response(status_code=200, json=MOCK_LM_STUDIO_CHAT_RESPONSE)
+        )
+        
+        ollama_payload = {
+            "model": "mistralai/magistral-small-2509",
+            "stream": False,
+            "messages": [{"role": "user", "content": "How many dogs?", "images": ["BINGO_IMG_DATA"]}]
+        }
+        
+        response = test_client.post("/api/chat", json=ollama_payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"]["content"] == "There are two dogs in the image."
+    assert data["done"] is True
+
+    received_payload = json.loads(mock_route.calls[0].request.content)
+    expected_content = [
+        {"type": "text", "text": "How many dogs?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,BINGO_IMG_DATA"}}
+    ]
+    assert received_payload["messages"][0]["content"] == expected_content
+
+# --- THIS IS THE FIX ---
+# Apply respx context manually
+def test_generate_streaming_with_image(test_client, mock_lm_studio_urls):
+    """Tests /api/generate with streaming and an image."""
+    chat_url = mock_lm_studio_urls["chat_url"]
+
+    with respx.mock as mocker:
+        mocker.post(chat_url).return_value(
+            Response(status_code=200, content="".join(MOCK_LM_STUDIO_STREAM_CHUNKS))
+        )
+
+        ollama_payload = {
+            "model": "mistralai/magistral-small-2509",
+            "stream": True,
+            "prompt": "How many dogs?",
+            "images": ["BINGO_IMG_DATA"]
+        }
+        
+        # TestClient's stream context needs to be inside respx context
+        with test_client.stream("POST", "/api/generate", json=ollama_payload) as response:
+            assert response.status_code == 200
+            # Read chunks *inside* the stream context
+            response_chunks = [json.loads(line) for line in response.iter_lines() if line]
+
+    # Assertions outside the contexts are fine
+    assert len(response_chunks) == 3
+    assert response_chunks[0]["response"] == "There are"
+    assert response_chunks[1]["response"] == " two dogs."
+    assert response_chunks[2]["done"] is True
+    assert response_chunks[2]["response"] == "There are two dogs."

@@ -1,5 +1,10 @@
 # src/routes/ollama_compat.py
 
+# --- WARNING ---
+# Enabling DEBUG level logging will cause the full contents of communication
+# with the LLM to be printed to the console. This may include sensitive data.
+# --- WARNING ---
+
 import time
 import asyncio
 import json
@@ -19,7 +24,8 @@ async def handle_pull(request: Request):
     try:
         request_data = await request.json()
         model_name = request_data.get("name", "unknown model")
-        logger.info(f"Received /api/pull request for '{model_name}'. Faking success.")
+        logger.info("Received /api/pull request. Faking success.")
+        logger.debug(f"Pull request for model: {model_name}")
     except Exception:
         logger.info("Received /api/pull request. Faking success.")
 

@@ -1,5 +1,10 @@
 # src/routes/chat.py
 
+# --- WARNING ---
+# Enabling DEBUG level logging will cause the full contents of communication
+# with the LLM to be printed to the console. This may include sensitive data.
+# --- WARNING ---
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
@@ -28,7 +33,7 @@ def translate_ollama_messages_to_openai(messages: list) -> list:
         # --- This is the translation logic ---
         # An image is present, so we must build the 'content' array
         
-        logger.info(f"Translating {len(msg['images'])} image(s) for role '{msg.get('role')}'")
+        logger.debug(f"Translating {len(msg['images'])} image(s) for role '{msg.get('role')}'")
         
         content_list = []
         
@@ -60,7 +65,7 @@ async def handle_ollama_chat(request: Request):
     try:
         ollama_data = await request.json()
         
-        logger.info(f"Received /api/chat request for model: {ollama_data.get('model')}")
+        logger.info("Received /api/chat request.")
         logger.debug(f"Full /api/chat payload: {json.dumps(ollama_data)}")
 
         openai_payload = translate_ollama_options_to_openai(ollama_data)
@@ -78,7 +83,7 @@ async def handle_ollama_chat(request: Request):
 
         # --- BRANCH 1: Streaming ---
         if is_streaming_request:
-            logger.info(f"Forwarding as STREAMING request to {chat_url}...")
+            logger.debug(f"Forwarding as STREAMING request to {chat_url}...")
             
             lm_studio_stream_context = client.stream("POST", chat_url, json=openai_payload)
             lm_studio_stream_response = await lm_studio_stream_context.__aenter__()
@@ -97,7 +102,7 @@ async def handle_ollama_chat(request: Request):
 
         # --- BRANCH 2: Non-Streaming ---
         else:
-            logger.info(f"Forwarding as NON-STREAMING request to {chat_url}...")
+            logger.debug(f"Forwarding as NON-STREAMING request to {chat_url}...")
             response = await client.post(chat_url, json=openai_payload)
             response.raise_for_status()
             openai_json = response.json()

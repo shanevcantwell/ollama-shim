@@ -23,11 +23,12 @@ dependencies = [
     "pydantic_settings",
 ]
 
+[project.scripts]
+ollama-shim = "src.main:main"
+
 [project.urls]
 Homepage = "https://github.com/shanevcantwell/ollama_shim"
 "Bug Tracker" = "https://github.com/shanevcantwell/ollama_shim/issues"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["*"]
-exclude = ["scripts*", "__pycache__*"]
+where = ["src"]

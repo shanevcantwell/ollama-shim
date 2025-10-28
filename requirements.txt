@@ -1,4 +1,0 @@
-fastapi[all]
-httpx>=0.25.0
-python-dotenv
-pydantic_settings

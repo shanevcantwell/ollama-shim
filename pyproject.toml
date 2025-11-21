@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ollama_shim"
 version = "0.1.0"
 authors = [
-    { name="Shane Cantwell", email="shane@vcantwell.com" }
+    { name="Shane V Cantwell", email="shanevcantwell@github.com" }
 ]
 description = "A service that bridges LM Studio with tools expecting an Ollama API"
 readme = "README.md"

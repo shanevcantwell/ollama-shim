@@ -1,25 +1,29 @@
 #!/bin/bash
-# This script stops the Ollama Shim FastAPI application.
+# Development script to stop Ollama Shim
+# For production, use: systemctl stop ollama-shim
 
-# --- Configuration ---
-PID_FILE="../ollama_shim.pid"
+echo "Stopping Ollama Shim..."
 
-# --- Stop Server ---
-if [ -f "$PID_FILE" ]; then
-    PID=$(cat "$PID_FILE")
-    echo "Found PID file. Attempting to stop server with PID: $PID..."
-    
-    # Check if the process is running
-    if kill -0 $PID 2>/dev/null; then
-        kill -9 $PID
-        echo "Server stopped successfully."
-    else
-        echo "Process with PID $PID not found. It might have already been stopped."
-    fi
-    
-    # --- Cleanup ---
-    rm "$PID_FILE"
-    echo "PID file removed."
+if ! pgrep -f "uvicorn src.main:app" > /dev/null; then
+    echo "Ollama Shim is not running."
+    exit 0
+fi
+
+# Kill the process
+pkill -f "uvicorn src.main:app"
+
+# Wait a moment and verify
+sleep 1
+
+if pgrep -f "uvicorn src.main:app" > /dev/null; then
+    echo "Warning: Process still running. Forcing shutdown..."
+    pkill -9 -f "uvicorn src.main:app"
+    sleep 1
+fi
+
+if pgrep -f "uvicorn src.main:app" > /dev/null; then
+    echo "Error: Failed to stop Ollama Shim"
+    exit 1
 else
-    echo "PID file not found. Is the server running?"
+    echo "Ollama Shim stopped successfully."
 fi

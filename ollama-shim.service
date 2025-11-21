@@ -1,0 +1,33 @@
+[Unit]
+Description=Ollama Shim - LM Studio to Ollama API Bridge
+After=network.target
+Documentation=https://github.com/shanevcantwell/ollama_shim
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/ollama-shim
+EnvironmentFile=/opt/ollama-shim/.env
+
+# Virtual environment activation is handled by specifying the full path to uvicorn
+ExecStart=/opt/ollama-shim/.venv/bin/uvicorn src.main:app --host 0.0.0.0 --port ${SHIM_PORT}
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ollama-shim/logs
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ollama-shim
+
+[Install]
+WantedBy=multi-user.target

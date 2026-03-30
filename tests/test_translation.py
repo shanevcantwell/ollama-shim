@@ -1,6 +1,10 @@
 import pytest
-from src.utils import translate_ollama_options_to_openai
-from src.routes.chat import translate_ollama_messages_to_openai
+try:
+    from ollama_shim.utils import translate_ollama_options_to_openai
+    from ollama_shim.routes.chat import translate_ollama_messages_to_openai
+except ImportError:
+    from src.utils import translate_ollama_options_to_openai
+    from src.routes.chat import translate_ollama_messages_to_openai
 
 # --- Unit Tests for src.utils.translate_ollama_options_to_openai ---
 

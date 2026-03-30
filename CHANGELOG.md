@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0] - 2026-03-30
 
 ### Added
 - Added `scripts/install-linux-service.sh` for automated systemd service deployment on Ubuntu/Debian
@@ -13,6 +13,9 @@
 
 ### Fixed
 - Fixed Dockerfile to use correct module path (`src.main:app`) and environment variables
+
+### Removed
+- Removed `ollama-shim.service` from root directory (replaced by `scripts/install-linux-service.sh`)
 
 ## [0.1.0] - 2025-10-23
 

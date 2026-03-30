@@ -1,14 +1,14 @@
 [build-system]
-requirements = ["setuptools>=42"]
+requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ollama_shim"
-version = "0.1.0"
+version = "1.0.0"
 authors = [
     { name="Shane V Cantwell", email="shanevcantwell@github.com" }
 ]
-description = "A service that bridges LM Studio with tools expecting an Ollama API"
+description = "A service that bridges LM Studio/llama-server with tools expecting an Ollama API"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -21,6 +21,7 @@ dependencies = [
     "httpx>=0.25.0",
     "python-dotenv",
     "pydantic_settings",
+    "uvicorn>=0.23.0",
 ]
 
 [project.optional-dependencies]
@@ -36,8 +37,9 @@ dev = [
 ollama-shim = "src.main:main"
 
 [project.urls]
-Homepage = "https://github.com/shanevcantwell/ollama_shim"
+Homepage = "https://github.com/shanevcantwell/ollama-shim"
 "Bug Tracker" = "https://github.com/shanevcantwell/ollama_shim/issues"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["ollama_shim*"]

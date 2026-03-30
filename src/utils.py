@@ -10,25 +10,25 @@ from .config import settings, logger
 # --- URL Helper Functions ---
 # (These now correctly use the settings object)
 def get_chat_completions_url() -> str:
-    """Builds the chat completions URL from the base URL."""
-    return f"{settings.LM_STUDIO_BASE_URL.rstrip('/')}/v1/chat/completions"
+    """Builds the chat completions URL from the backend URL."""
+    return f"{settings.BACKEND_BASE_URL.rstrip('/')}/v1/chat/completions"
 
 def get_models_url() -> str:
-    """Builds the models URL from the base URL."""
-    return f"{settings.LM_STUDIO_BASE_URL.rstrip('/')}/v1/models"
+    """Builds the models URL from the backend URL."""
+    return f"{settings.BACKEND_BASE_URL.rstrip('/')}/v1/models"
 
 # --- HTTP Client Lifecycle ---
 client = httpx.AsyncClient(timeout=300.0)
 
 async def startup_client():
     logger.info(f"Ollama-to-OpenAI Shim starting up...")
-    logger.info(f"Forwarding to LM Studio Base URL: {settings.LM_STUDIO_BASE_URL}")
+    logger.info(f"Forwarding to Backend Base URL: {settings.BACKEND_BASE_URL}")
     try:
         # Test connection on startup
         await client.get(get_models_url())
-        logger.info("Successfully connected to LM Studio models endpoint.")
+        logger.info("Successfully connected to backend models endpoint.")
     except Exception as e:
-        logger.error(f"STARTUP FAILED: Could not connect to LM Studio at {get_models_url()}: {e}")
+        logger.error(f"STARTUP FAILED: Could not connect to backend at {get_models_url()}: {e}")
 
 async def shutdown_client():
     await client.aclose()
@@ -60,18 +60,18 @@ def translate_ollama_options_to_openai(ollama_data: dict) -> dict:
     return openai_payload
 
 # --- Stream Translator (with lifecycle fix) ---
-async def stream_translator(lm_studio_stream, response_format: str, model_name: str, context_to_close=None):
+async def stream_translator(backend_stream, response_format: str, model_name: str, context_to_close=None):
     """
     Async generator that translates an OpenAI-style stream into an
     Ollama-style stream (line-delimited JSON).
-    
+
     It now accepts a 'context_to_close' to manually close the stream.
     """
     full_response_content = ""
     usage_data = None
-    
+
     try:
-        async for chunk in lm_studio_stream.aiter_bytes():
+        async for chunk in backend_stream.aiter_bytes():
             chunk_str = chunk.decode('utf-8')
             for line in chunk_str.splitlines():
                 if line.startswith("data: "):
@@ -158,4 +158,4 @@ async def stream_translator(lm_studio_stream, response_format: str, model_name: 
             await context_to_close.__aexit__(None, None, None)
         else:
             logger.debug("Aclosing stream object directly.")
-            await lm_studio_stream.aclose()
+            await backend_stream.aclose()

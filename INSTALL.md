@@ -17,7 +17,7 @@ pip install -e .
 
 # 3. Configure
 cp .env.example .env
-nano .env  # Edit SHIM_PORT, LM_STUDIO_BASE_URL, etc.
+nano .env  # Edit SHIM_PORT, BACKEND_BASE_URL, etc.
 
 # 4. Install and start service
 sudo cp ollama-shim.service /etc/systemd/system/
@@ -75,7 +75,7 @@ scripts\run.bat  # Press Ctrl+C to stop
 Edit `.env` file:
 ```ini
 SHIM_PORT=11434                          # Port to listen on
-LM_STUDIO_BASE_URL=http://localhost:1234 # LM Studio location
+BACKEND_BASE_URL=http://localhost:1234 # Backend (LM Studio, llama-server, etc.) location
 API_TIMEOUT=30.0
 RESPONSE_TIMEOUT=300.0
 LOG_LEVEL=INFO

@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     Settings are loaded from environment variables. A .env file in the root
     directory can be used for local development.
     """
-    # --- LM Studio Connection ---
-    # The base URL for the LM Studio instance.
-    LM_STUDIO_BASE_URL: str = Field(default="http://localhost:1234", validation_alias=AliasChoices("lm_studio_url", "lm_studio_base_url"))
+    # --- Backend Connection ---
+    # The base URL for the OpenAI-compatible backend (e.g., LM Studio, llama-server).
+    BACKEND_BASE_URL: str = Field(default="http://localhost:1234", validation_alias=AliasChoices("backend_url", "backend_base_url", "lm_studio_url", "lm_studio_base_url"))
     AUTH_TOKEN: str | None = None
 
     # --- Timeouts ---

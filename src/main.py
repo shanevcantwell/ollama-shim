@@ -26,8 +26,8 @@ async def lifespan(app: FastAPI):
 
 # --- Create FastAPI App ---
 app = FastAPI(
-    title="Ollama to LM Studio Shim",
-    description="Translates Ollama API requests to an OpenAI-compatible API (like LM Studio) and back.",
+    title="Ollama Shim",
+    description="Translates Ollama API requests to an OpenAI-compatible API (like LM Studio or llama-server) and back.",
     version="1.0.0",
     lifespan=lifespan
 )

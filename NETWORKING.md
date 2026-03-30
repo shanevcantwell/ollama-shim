@@ -8,29 +8,29 @@ Ollama Shim binds to `0.0.0.0:11434` (all interfaces, Ollama's standard port).
 
 ### 1. Everything on One Machine (Simplest)
 ```
-LM Studio (localhost:1234) → Ollama Shim (localhost:11434) → Client app
+Backend (localhost:1234) → Ollama Shim (localhost:11434) → Client app
 ```
 
 **.env:**
 ```ini
-LM_STUDIO_BASE_URL=http://localhost:1234
+BACKEND_BASE_URL=http://localhost:1234
 SHIM_PORT=11434
 ```
 
 ### 2. LM Studio on Different Machine
 ```
-LM Studio (192.168.1.10:1234) → Ollama Shim (this machine:11434) → Clients
+Backend (192.168.1.10:1234) → Ollama Shim (this machine:11434) → Clients
 ```
 
 **.env:**
 ```ini
-LM_STUDIO_BASE_URL=http://192.168.1.10:1234
+BACKEND_BASE_URL=http://192.168.1.10:1234
 SHIM_PORT=11434
 ```
 
 ### 3. Shim on Server, Accessed Remotely
 ```
-LM Studio (server:1234) → Ollama Shim (server:11434) ← Client (anywhere)
+Backend (server:1234) → Ollama Shim (server:11434) ← Client (anywhere)
 ```
 
 Clients connect to: `http://server-ip:11434`
@@ -105,7 +105,7 @@ curl http://localhost:11434/api/tags
 2. WSL2 NAT mode? (see above)
 3. Binding to `127.0.0.1` instead of `0.0.0.0`? (check uvicorn args)
 
-**"Can't reach LM Studio"**
-1. Is LM Studio running? Test: `curl http://localhost:1234/v1/models`
-2. Check `LM_STUDIO_BASE_URL` in `.env`
-3. If LM Studio is on different machine, use its IP not `localhost`
+**"Can't reach backend"**
+1. Is backend running? Test: `curl http://localhost:1234/v1/models`
+2. Check `BACKEND_BASE_URL` in `.env`
+3. If backend is on different machine, use its IP not `localhost`

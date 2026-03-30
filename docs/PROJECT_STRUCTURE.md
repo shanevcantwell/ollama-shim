@@ -9,7 +9,7 @@ This document outlines the file and directory structure of the Ollama Shim proje
     *   **Interconnection**: Imports `config` for global settings and includes routers from `routes/`.
 
 *   `config.py`:
-    *   **Purpose**: Stores environment variable loading and core configuration settings such as `LM_STUDIO_BASE_URL`, `PRIMARY_MODEL_URL`, `API_TIMEOUT`, and `RESPONSE_TIMEOUT`.
+    *   **Purpose**: Stores environment variable loading and core configuration settings such as `BACKEND_BASE_URL`, `API_TIMEOUT`, and `RESPONSE_TIMEOUT`.
     *   **Interconnection**: Imported by `utils.py` and various route files to access global configuration.
 
 *   `utils.py`:

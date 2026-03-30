@@ -7,9 +7,9 @@ from httpx import Response, ConnectError
 # No need to import TestClient here, it comes from the fixture
 
 # --- Sample Payloads (Unchanged) ---
-MOCK_LM_STUDIO_MODELS = { "data": [{"id": "mistralai/magistral-small-2509", "created": 1720000000, "object": "model", "owned_by": "unknown"}]}
-MOCK_LM_STUDIO_CHAT_RESPONSE = {"id": "chatcmpl-123", "object": "chat.completion", "created": 1720000001, "model": "mistralai/magistral-small-2509", "choices": [{"index": 0, "message": {"role": "assistant", "content": "There are two dogs in the image."}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}}
-MOCK_LM_STUDIO_STREAM_CHUNKS = ['data: {"id":"1","choices":[{"delta":{"role":"assistant"}}]}\n\n', 'data: {"id":"2","choices":[{"delta":{"content":"There are"}}]}\n\n', 'data: {"id":"3","choices":[{"delta":{"content":" two dogs."}}]}\n\n', 'data: {"id":"4","choices":[{"delta":{},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n']
+MOCK_BACKEND_MODELS = { "data": [{"id": "mistralai/magistral-small-2509", "created": 1720000000, "object": "model", "owned_by": "unknown"}]}
+MOCK_BACKEND_CHAT_RESPONSE = {"id": "chatcmpl-123", "object": "chat.completion", "created": 1720000001, "model": "mistralai/magistral-small-2509", "choices": [{"index": 0, "message": {"role": "assistant", "content": "There are two dogs in the image."}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}}
+MOCK_BACKEND_STREAM_CHUNKS = ['data: {"id":"1","choices":[{"delta":{"role":"assistant"}}]}\n\n', 'data: {"id":"2","choices":[{"delta":{"content":"There are"}}]}\n\n', 'data: {"id":"3","choices":[{"delta":{"content":" two dogs."}}]}\n\n', 'data: {"id":"4","choices":[{"delta":{},"finish_reason":"stop"}]}\n\n', 'data: [DONE]\n\n']
 
 # --- The Tests (Using manual 'with respx.mock') ---
 
@@ -21,12 +21,12 @@ def test_health_check(test_client): # No mocking needed
 
 # --- THIS IS THE FIX ---
 # Apply respx context manually
-def test_get_tags_success(test_client, mock_lm_studio_urls):
+def test_get_tags_success(test_client, mock_backend_urls):
     """Tests the ComfyUI /api/tags endpoint."""
-    models_url = mock_lm_studio_urls["models_url"]
+    models_url = mock_backend_urls["models_url"]
     
     with respx.mock as mocker: # Activate mocking
-        mocker.get(models_url).return_value(Response(status_code=200, json=MOCK_LM_STUDIO_MODELS))
+        mocker.get(models_url).return_value(Response(status_code=200, json=MOCK_BACKEND_MODELS))
         
         # Make the call *within* the mock context
         response = test_client.get("/api/tags") 
@@ -40,9 +40,9 @@ def test_get_tags_success(test_client, mock_lm_studio_urls):
 
 # --- THIS IS THE FIX ---
 # Apply respx context manually
-def test_get_tags_connection_error(test_client, mock_lm_studio_urls):
+def test_get_tags_connection_error(test_client, mock_backend_urls):
     """Tests /api/tags when LM Studio is unreachable."""
-    models_url = mock_lm_studio_urls["models_url"]
+    models_url = mock_backend_urls["models_url"]
     
     with respx.mock as mocker:
         mocker.get(models_url).side_effect = ConnectError("Connection failed")
@@ -55,13 +55,13 @@ def test_get_tags_connection_error(test_client, mock_lm_studio_urls):
 
 # --- THIS IS THE FIX ---
 # Apply respx context manually
-def test_chat_non_streaming_image(test_client, mock_lm_studio_urls):
+def test_chat_non_streaming_image(test_client, mock_backend_urls):
     """Tests the AnythingLLM non-streaming image case (/api/chat)."""
-    chat_url = mock_lm_studio_urls["chat_url"]
+    chat_url = mock_backend_urls["chat_url"]
     
     with respx.mock as mocker:
         mock_route = mocker.post(chat_url).return_value(
-            Response(status_code=200, json=MOCK_LM_STUDIO_CHAT_RESPONSE)
+            Response(status_code=200, json=MOCK_BACKEND_CHAT_RESPONSE)
         )
         
         ollama_payload = {
@@ -86,13 +86,13 @@ def test_chat_non_streaming_image(test_client, mock_lm_studio_urls):
 
 # --- THIS IS THE FIX ---
 # Apply respx context manually
-def test_generate_streaming_with_image(test_client, mock_lm_studio_urls):
+def test_generate_streaming_with_image(test_client, mock_backend_urls):
     """Tests /api/generate with streaming and an image."""
-    chat_url = mock_lm_studio_urls["chat_url"]
+    chat_url = mock_backend_urls["chat_url"]
 
     with respx.mock as mocker:
         mocker.post(chat_url).return_value(
-            Response(status_code=200, content="".join(MOCK_LM_STUDIO_STREAM_CHUNKS))
+            Response(status_code=200, content="".join(MOCK_BACKEND_STREAM_CHUNKS))
         )
 
         ollama_payload = {

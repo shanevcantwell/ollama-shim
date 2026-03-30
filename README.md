@@ -1,6 +1,6 @@
 # Ollama Shim Service
 
-A service that bridges LM Studio with tools expecting an Ollama API.
+A service that bridges any OpenAI-compatible backend (LM Studio, llama-server, etc.) with tools expecting an Ollama API.
 
 ## Features
 
@@ -51,7 +51,7 @@ cp .env.example .env
 
 Then, edit the `.env` file to set your desired configuration. The following variables are available:
 
-- `PRIMARY_MODEL_URL`: The full URL to your LM Studio (or other OpenAI-compatible) completions endpoint.
+- `BACKEND_BASE_URL`: The full URL to your OpenAI-compatible backend (e.g., LM Studio, llama-server).
 - `API_TIMEOUT`: Timeout (in seconds) for the OpenAI API request.
 - `RESPONSE_TIMEOUT`: Max wait time for a response from the model.
 - `SHIM_PORT`: Port for the Ollama Shim service to listen on.

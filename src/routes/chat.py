@@ -84,18 +84,18 @@ async def handle_ollama_chat(request: Request):
         # --- BRANCH 1: Streaming ---
         if is_streaming_request:
             logger.debug(f"Forwarding as STREAMING request to {chat_url}...")
-            
-            lm_studio_stream_context = client.stream("POST", chat_url, json=openai_payload)
-            lm_studio_stream_response = await lm_studio_stream_context.__aenter__()
-            
-            lm_studio_stream_response.raise_for_status()
-            
+
+            backend_stream_context = client.stream("POST", chat_url, json=openai_payload)
+            backend_stream_response = await backend_stream_context.__aenter__()
+
+            backend_stream_response.raise_for_status()
+
             return StreamingResponse(
                 stream_translator(
-                    lm_studio_stream_response, 
+                    backend_stream_response,
                     response_format="chat",
                     model_name=openai_payload["model"],
-                    context_to_close=lm_studio_stream_context
+                    context_to_close=backend_stream_context
                 ),
                 media_type="application/x-ndjson"
             )
@@ -107,7 +107,7 @@ async def handle_ollama_chat(request: Request):
             response.raise_for_status()
             openai_json = response.json()
             
-            logger.debug(f"Received non-streaming response from LM Studio: {openai_json}")
+            logger.debug(f"Received non-streaming response from backend: {openai_json}")
 
             ollama_response = {
                 "model": openai_json["model"],

@@ -14,7 +14,7 @@ def test_client():
         yield client
 
 @pytest.fixture(scope="function")
-def mock_lm_studio_urls():
+def mock_backend_urls():
     """Provides the URLs the app will try to call."""
     return {
         "models_url": get_models_url(),

@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 import re
 from fastapi import HTTPException
-from config import PRIMARY_MODEL_URL, API_TIMEOUT, RESPONSE_TIMEOUT, LM_STUDIO_BASE_URL
+from config import PRIMARY_MODEL_URL, API_TIMEOUT, RESPONSE_TIMEOUT, BACKEND_BASE_URL
 
 def map_ollama_options_to_openai(ollama_options: dict) -> dict:
     """Maps Ollama-specific options to OpenAI-compatible parameters."""
@@ -74,7 +74,7 @@ async def stream_and_transform_llm_response(payload: dict):
                         print(f"--- JSONDecodeError in stream chunk: {stripped_line} ---")
                         continue
     except (httpx.RequestError, httpx.HTTPStatusError, asyncio.TimeoutError) as e:
-        error_msg = f"Failed to connect to {PRIMARY_MODEL_URL}: {type(e).__name__} - {e}"
+        error_msg = f"Failed to connect to backend: {type(e).__name__} - {e}"
         print(f"--- Error during streaming ---\n{error_msg}")
 
     # Send final done message
@@ -113,7 +113,7 @@ async def call_llm(url: str, payload: dict):
 async def check_backend_health():
     """Check if the primary model endpoint is available"""
     try:
-        models_url = f"{LM_STUDIO_BASE_URL.rstrip('/')}/v1/models"
+        models_url = f"{BACKEND_BASE_URL.rstrip('/')}/v1/models"
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             await asyncio.wait_for(client.get(models_url), timeout=API_TIMEOUT)
         return True

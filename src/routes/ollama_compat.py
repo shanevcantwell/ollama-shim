@@ -39,17 +39,17 @@ async def handle_pull(request: Request):
 
 @router.get("/api/tags")
 async def handle_tags():
-    logger.info("Received /api/tags request. Forwarding to LM Studio...")
+    logger.info("Received /api/tags request. Forwarding to backend...")
     models_url = get_models_url()
-    logger.debug(f"Calling LM Studio for models at: {models_url}")
+    logger.debug(f"Calling backend for models at: {models_url}")
     
     try:
-        lm_studio_response = await client.get(models_url)
-        lm_studio_response.raise_for_status() 
-        lm_studio_models_data = lm_studio_response.json()
+        backend_response = await client.get(models_url)
+        backend_response.raise_for_status()
+        backend_models_data = backend_response.json()
 
         ollama_models = []
-        for model in lm_studio_models_data.get("data", []):
+        for model in backend_models_data.get("data", []):
             model_id = model.get("id")
             if model_id:
                 modified_time = datetime.fromtimestamp(
@@ -79,11 +79,11 @@ async def handle_tags():
         return JSONResponse(content=response_data)
 
     except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error from LM Studio server at {models_url}: {e.response.status_code} {e.response.text}", exc_info=True)
-        return JSONResponse(content={"error": f"LM Studio server error: {e.response.text}"}, status_code=500)
+        logger.error(f"HTTP error from backend at {models_url}: {e.response.status_code} {e.response.text}", exc_info=True)
+        return JSONResponse(content={"error": f"Backend server error: {e.response.text}"}, status_code=500)
     except httpx.RequestError as e:
-        logger.error(f"Error connecting to LM Studio at {models_url}: {e}", exc_info=True)
-        return JSONResponse(content={"error": f"Cannot connect to LM Studio: {e}"}, status_code=500)
+        logger.error(f"Error connecting to backend at {models_url}: {e}", exc_info=True)
+        return JSONResponse(content={"error": f"Cannot connect to backend: {e}"}, status_code=500)
     except Exception as e:
         logger.error(f"An error occurred in /api/tags: {e}", exc_info=True)
         return JSONResponse(content={"error": f"Internal server error: {e}"}, status_code=500)

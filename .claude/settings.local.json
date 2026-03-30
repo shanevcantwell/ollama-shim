@@ -4,7 +4,14 @@
       "Bash(curl -s http://192.168.137.2:11234/)",
       "Bash(curl -s http://192.168.137.2:11234/api/tags)",
       "Bash(python3 -m json.tool)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(pkill -f \"uvicorn.*8000\")",
+      "Bash(pkill -f \"uvicorn\")",
+      "Bash(python -c \"from src.config import settings; print\\(f''SHIM_PORT={settings.SHIM_PORT}''\\)\")",
+      "Bash(curl -s http://localhost:11434/api/chat -d '{:*)",
+      "Bash(curl -s http://localhost:11434/api/generate -d '{:*)",
+      "Bash(chmod +x /home/shane/github/shanevcantwell/ollama-shim/scripts/install-linux-service.sh)",
+      "Bash(git add:*)"
     ]
   }
 }

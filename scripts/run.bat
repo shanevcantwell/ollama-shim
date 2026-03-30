@@ -24,4 +24,4 @@ IF NOT DEFINED SHIM_PORT (
 REM --- Start Server ---
 echo "Starting Ollama Shim server on port %SHIM_PORT%..."
 echo "Press Ctrl+C to stop the server."
-python -m uvicorn src.main:app --host 0.0.0.0 --port %SHIM_PORT%
+python -m uvicorn src.main:app --host 0.0.0.0 --port %SHIM_PORT% --reload

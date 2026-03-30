@@ -4,29 +4,33 @@ Quick installation instructions for production deployments.
 
 ## Linux/Ubuntu (systemd)
 
-```bash
-# 1. Install to /opt
-sudo mkdir -p /opt/ollama-shim
-sudo cp -r . /opt/ollama-shim/
-cd /opt/ollama-shim
+The easiest way to install on Linux is using the automated installation script:
 
-# 2. Create virtual environment
+```bash
+# 1. Clone and setup
+git clone https://github.com/shanevcantwell/ollama-shim.git
+cd ollama-shim
+
+# 2. Create virtual environment and install dependencies
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -r requirements.txt
 
 # 3. Configure
 cp .env.example .env
 nano .env  # Edit SHIM_PORT, BACKEND_BASE_URL, etc.
 
-# 4. Install and start service
-sudo cp ollama-shim.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now ollama-shim
+# 4. Run the installation script (requires sudo)
+sudo bash scripts/install-linux-service.sh
 
 # 5. Check status
 sudo systemctl status ollama-shim
 sudo journalctl -u ollama-shim -f
+```
+
+To uninstall:
+```bash
+sudo bash scripts/install-linux-service.sh --uninstall
 ```
 
 ## Windows (NSSM Service)
@@ -42,7 +46,7 @@ mkdir "C:\Program Files\ollama-shim"
 cd "C:\Program Files\ollama-shim"
 python -m venv .venv
 .venv\Scripts\activate
-pip install -e .
+pip install -r requirements.txt
 
 # 3. Configure
 copy .env.example .env
@@ -52,7 +56,7 @@ notepad .env  # Edit configuration
 mkdir logs
 
 # 5. Install service
-PowerShell -ExecutionPolicy Bypass -File install-windows-service.ps1
+PowerShell -ExecutionPolicy Bypass -File scripts\install-windows-service.ps1
 
 # 6. Start service
 net start OllamaShim

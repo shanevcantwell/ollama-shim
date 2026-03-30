@@ -36,4 +36,6 @@ echo "Press Ctrl+C to stop the server."
 echo ""
 
 # Run in foreground with auto-reload for development
-python -m uvicorn src.main:app --host 0.0.0.0 --reload
+# Use SHIM_PORT from .env if set, otherwise default to 11434
+PORT="${SHIM_PORT:-11434}"
+python -m uvicorn src.main:app --host 0.0.0.0 --port "$PORT" --reload

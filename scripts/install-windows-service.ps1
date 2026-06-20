@@ -5,7 +5,7 @@
 # PowerShell -ExecutionPolicy Bypass -File install-windows-service.ps1
 
 param(
-    [string]$InstallPath = "C:\Program Files\ollama-shim",
+    [string]$InstallPath = "C:\Users\Shane\github\ollama-shim",
     [switch]$Uninstall
 )
 
@@ -40,19 +40,12 @@ $PythonExe = Join-Path $InstallPath ".venv\Scripts\python.exe"
 $UvicornPath = Join-Path $InstallPath ".venv\Scripts\uvicorn.exe"
 $WorkingDir = $InstallPath
 $EnvFile = Join-Path $InstallPath ".env"
+$LogDir = Join-Path $WorkingDir "logs"
 
 # Verify paths exist
 if (-not (Test-Path $InstallPath)) {
     Write-Error "Installation path does not exist: $InstallPath"
     exit 1
-}
-
-if (-not (Test-Path $UvicornPath)) {
-    Write-Warning "Uvicorn not found at $UvicornPath"
-    Write-Host "Attempting to use python -m uvicorn instead..."
-    $AppCommand = "$PythonExe -m uvicorn"
-} else {
-    $AppCommand = $UvicornPath
 }
 
 # Load SHIM_PORT from .env
@@ -64,6 +57,38 @@ if (Test-Path $EnvFile) {
             $ShimPort = $matches[1]
             break
         }
+    }
+}
+
+# Choose how to launch uvicorn. NSSM's Application must be a real executable;
+# fall back to "python -m uvicorn" when the uvicorn console script is missing.
+if (-not (Test-Path $UvicornPath)) {
+    Write-Warning "Uvicorn not found at $UvicornPath"
+    Write-Host "Falling back to: python -m uvicorn"
+    $AppExe = $PythonExe
+    $AppArgs = @("-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "$ShimPort")
+} else {
+    $AppExe = $UvicornPath
+    $AppArgs = @("src.main:app", "--host", "0.0.0.0", "--port", "$ShimPort")
+}
+
+# NSSM redirects stdout/stderr to files under logs\; it cannot create that
+# directory itself, so create it now or the service fails to start with
+# "The system cannot open the file."
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+}
+
+# Build the environment block for the service from .env, stripping inline
+# comments (e.g. "API_TIMEOUT=30.0  # ...") and blank/empty values. NSSM sets
+# these as real OS environment variables, bypassing python-dotenv's own
+# comment handling, so unstripped comments would break pydantic parsing.
+$AppEnv = Get-Content $EnvFile | ForEach-Object {
+    $line = ($_ -replace '\s+#.*$', '').Trim()
+    if ($line -match '^([^#=]+)=(.*)$') {
+        $key = $matches[1].Trim()
+        $val = $matches[2].Trim()
+        if ($val -ne "") { "$key=$val" }
     }
 }
 
@@ -80,17 +105,17 @@ if ($existingService) {
 }
 
 # Install service
-nssm install $ServiceName $UvicornPath "src.main:app" "--host" "0.0.0.0" "--port" $ShimPort
+nssm install $ServiceName $AppExe $AppArgs
 nssm set $ServiceName DisplayName $DisplayName
 nssm set $ServiceName Description $Description
 nssm set $ServiceName AppDirectory $WorkingDir
 
-# Load environment variables from .env file
-nssm set $ServiceName AppEnvironmentExtra $(Get-Content $EnvFile | Where-Object { $_ -notmatch "^\s*#" -and $_ -match "=" } | ForEach-Object { $_.Trim() })
+# Load environment variables from .env file (inline comments already stripped)
+nssm set $ServiceName AppEnvironmentExtra $AppEnv
 
 # Configure service restart behavior
-nssm set $ServiceName AppStdout "$WorkingDir\logs\service.log"
-nssm set $ServiceName AppStderr "$WorkingDir\logs\service-error.log"
+nssm set $ServiceName AppStdout "$LogDir\service.log"
+nssm set $ServiceName AppStderr "$LogDir\service-error.log"
 nssm set $ServiceName AppRotateFiles 1
 nssm set $ServiceName AppRotateBytes 1048576  # 1MB
 

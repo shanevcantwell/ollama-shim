@@ -75,8 +75,12 @@ async def handle_ollama_generate(request: Request):
             
             logger.debug(f"Received non-streaming response from backend: {openai_json}")
 
-            final_content = openai_json["choices"][0]["message"]["content"]
-            
+            message = openai_json["choices"][0]["message"]
+            # Coalesce null content (LM Studio sends content: null when a
+            # reasoning model is truncated mid-thought) to an empty string so
+            # 'response' is never null.
+            final_content = message.get("content") or ""
+
             ollama_response = {
                 "model": openai_json["model"],
                 "created_at": get_iso_timestamp(),
@@ -84,6 +88,12 @@ async def handle_ollama_generate(request: Request):
                 "done": True,
                 "context": [],
             }
+            # Map OpenAI's reasoning channel to Ollama's native 'thinking'
+            # field, letting the client decide what to do with it instead of
+            # dropping it or folding it into 'response'.
+            reasoning = message.get("reasoning_content")
+            if reasoning:
+                ollama_response["thinking"] = reasoning
             if "usage" in openai_json and openai_json["usage"]:
                  ollama_response.update({
                     "total_duration": openai_json["usage"].get("total_duration_sec", 0) * 1_000_000_000,

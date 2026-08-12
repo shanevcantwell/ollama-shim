@@ -90,6 +90,31 @@ async def stream_translator(backend_stream, response_format: str, model_name: st
                         
                     delta = openai_chunk["choices"][0].get("delta", {})
                     content = delta.get("content")
+                    reasoning = delta.get("reasoning_content")
+
+                    # Reasoning arrives before the answer; forward it in
+                    # Ollama's native 'thinking' channel and keep response/
+                    # content empty so clients that ignore thinking are
+                    # unaffected.
+                    if reasoning:
+                        timestamp = get_iso_timestamp()
+                        if response_format == "chat":
+                            ollama_chunk = {
+                                "model": model_name,
+                                "created_at": timestamp,
+                                "message": {"role": "assistant", "content": "", "thinking": reasoning},
+                                "done": False
+                            }
+                        else: # "generate"
+                            ollama_chunk = {
+                                "model": model_name,
+                                "created_at": timestamp,
+                                "response": "",
+                                "thinking": reasoning,
+                                "done": False
+                            }
+                        logger.debug(f"Streaming thinking chunk: {ollama_chunk}")
+                        yield json.dumps(ollama_chunk) + "\n"
 
                     if content:
                         full_response_content += content

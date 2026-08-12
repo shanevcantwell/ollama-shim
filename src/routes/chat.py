@@ -109,10 +109,23 @@ async def handle_ollama_chat(request: Request):
             
             logger.debug(f"Received non-streaming response from backend: {openai_json}")
 
+            backend_message = openai_json["choices"][0]["message"]
+            ollama_message = {
+                "role": backend_message.get("role", "assistant"),
+                # Coalesce null content to "" (see generate.py).
+                "content": backend_message.get("content") or "",
+            }
+            # Map OpenAI's reasoning channel to Ollama's native 'thinking' field
+            # instead of leaking the raw 'reasoning_content' key.
+            if backend_message.get("reasoning_content"):
+                ollama_message["thinking"] = backend_message["reasoning_content"]
+            if backend_message.get("tool_calls"):
+                ollama_message["tool_calls"] = backend_message["tool_calls"]
+
             ollama_response = {
                 "model": openai_json["model"],
                 "created_at": get_iso_timestamp(),
-                "message": openai_json["choices"][0]["message"],
+                "message": ollama_message,
                 "done": True
             }
             if "usage" in openai_json and openai_json["usage"]:
